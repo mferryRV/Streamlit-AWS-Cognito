@@ -1,5 +1,9 @@
 import os
+from datetime import datetime, timedelta
 import streamlit as st
+import extra_streamlit_components as stx
+import jwt
+from jwt import DecodeError, InvalidSignatureError
 from dotenv import load_dotenv
 import requests
 import base64
@@ -13,7 +17,41 @@ COGNITO_DOMAIN = os.environ.get("COGNITO_DOMAIN")
 CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 APP_URI = os.environ.get("APP_URI")
+COOKIE_NAME = os.environ.get("COOKIE_NAME")
+COOKIE_KEY = os.environ.get("COOKIE_KEY")
 
+cookie_manager = stx.CookieManager()
+
+# ------------------------------------
+# Set cookies for ID and access
+# ------------------------------------
+def set_cookie(access_token, id_token):
+    try:
+        encoded_token = jwt.encode({'access': access_token, 'id': id_token}, COOKIE_KEY, algorithm='HS256')
+        cookie_manager.set(COOKIE_NAME, encoded_token,
+                            expires_at=datetime.now() + timedelta(hours=1))
+    except Exception as e:
+        print(e)
+
+# ------------------------------------
+# Get cookies for ID and access
+# ------------------------------------
+def get_cookie():
+    encoded_token = cookie_manager.get(COOKIE_NAME)
+    if encoded_token is not None:
+        try:
+            decoded_token = jwt.decode(encoded_token, COOKIE_KEY, algorithms=['HS256'])
+            return decoded_token['access'], decoded_token['id']
+        except (InvalidSignatureError, DecodeError, KeyError) as e:
+            print(e)
+    
+    return "", ""
+
+def clear_cookie():
+    try:
+        cookie_manager.delete(COOKIE_NAME)
+    except:
+        print('Failed to delete cookies')
 
 # ------------------------------------
 # Initialise Streamlit state variables
@@ -32,6 +70,22 @@ def initialise_st_state_vars():
     if "user_cognito_groups" not in st.session_state:
         st.session_state["user_cognito_groups"] = []
 
+# ----------------------------------
+# Check if user just logged out
+# ----------------------------------
+def is_logged_out():
+    """
+    Gets ?logout query parameter from logout URI.
+
+    Returns:
+        Boolean
+    """
+    auth_query_params = st.query_params.to_dict()
+    try:
+        logout = dict(auth_query_params)["logout"]
+        return True
+    except (KeyError, TypeError):
+        return False
 
 # ----------------------------------
 # Get authorization code after login
@@ -85,30 +139,35 @@ def get_user_tokens(auth_code):
 
     """
 
-    # Variables to make a post request
-    token_url = f"{COGNITO_DOMAIN}/oauth2/token"
-    client_secret_string = f"{CLIENT_ID}:{CLIENT_SECRET}"
-    client_secret_encoded = str(
-        base64.b64encode(client_secret_string.encode("utf-8")), "utf-8"
-    )
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {client_secret_encoded}",
-    }
-    body = {
-        "grant_type": "authorization_code",
-        "client_id": CLIENT_ID,
-        "code": auth_code,
-        "redirect_uri": APP_URI,
-    }
+    access_token, id_token = get_cookie()
 
-    token_response = requests.post(token_url, headers=headers, data=body)
-    try:
-        access_token = token_response.json()["access_token"]
-        id_token = token_response.json()["id_token"]
-    except (KeyError, TypeError):
-        access_token = ""
-        id_token = ""
+    if access_token == "":
+        # Variables to make a post request
+        token_url = f"{COGNITO_DOMAIN}/oauth2/token"
+        client_secret_string = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        client_secret_encoded = str(
+            base64.b64encode(client_secret_string.encode("utf-8")), "utf-8"
+        )
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Basic {client_secret_encoded}",
+        }
+        body = {
+            "grant_type": "authorization_code",
+            "client_id": CLIENT_ID,
+            "code": auth_code,
+            "redirect_uri": APP_URI,
+        }
+
+        token_response = requests.post(token_url, headers=headers, data=body)
+        try:
+            access_token = token_response.json()["access_token"]
+            id_token = token_response.json()["id_token"]
+            set_cookie(access_token, id_token)
+            print("Set cookie")
+        except (KeyError, TypeError):
+            access_token = ""
+            id_token = ""
 
     return access_token, id_token
 
@@ -188,6 +247,8 @@ def set_st_state_vars():
         Nothing.
     """
     initialise_st_state_vars()
+    if is_logged_out():
+        clear_cookie()
     auth_code = get_auth_code()
     access_token, id_token = get_user_tokens(auth_code)
     user_cognito_groups = get_user_cognito_groups(id_token)
@@ -202,7 +263,7 @@ def set_st_state_vars():
 # Login/ Logout HTML components
 # -----------------------------
 login_link = f"{COGNITO_DOMAIN}/login?client_id={CLIENT_ID}&response_type=code&scope=email+openid&redirect_uri={APP_URI}"
-logout_link = f"{COGNITO_DOMAIN}/logout?client_id={CLIENT_ID}&logout_uri={APP_URI}"
+logout_link = f"{COGNITO_DOMAIN}/logout?client_id={CLIENT_ID}&logout_uri={APP_URI}?logout"
 
 html_css_login = """
 <style>

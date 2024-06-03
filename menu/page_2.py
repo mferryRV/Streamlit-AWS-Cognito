@@ -23,7 +23,7 @@ def main():
 st.header("Page 2")
 
 # if user logged in and belongs to group group2
-if st.session_state["authenticated"] and "group2" in st.session_state["user_cognito_groups"]:
+if st.session_state["authenticated"] and "super-admins" in st.session_state["user_cognito_groups"]:
     main()
 else:
     if st.session_state["authenticated"]:
