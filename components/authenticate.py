@@ -18,7 +18,7 @@ CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 APP_URI = os.environ.get("APP_URI")
 COOKIE_NAME = os.environ.get("COOKIE_NAME")
-COOKIE_KEY = os.environ.get("COOKIE_KEY")
+COOKIE_HASH_KEY = os.environ.get("COOKIE_HASH_KEY")
 
 cookie_manager = stx.CookieManager()
 
@@ -27,7 +27,7 @@ cookie_manager = stx.CookieManager()
 # ------------------------------------
 def set_cookie(access_token, id_token):
     try:
-        encoded_token = jwt.encode({'access': access_token, 'id': id_token}, COOKIE_KEY, algorithm='HS256')
+        encoded_token = jwt.encode({'access': access_token, 'id': id_token}, COOKIE_HASH_KEY, algorithm='HS256')
         cookie_manager.set(COOKIE_NAME, encoded_token,
                             expires_at=datetime.now() + timedelta(hours=1))
     except Exception as e:
@@ -40,7 +40,7 @@ def get_cookie():
     encoded_token = cookie_manager.get(COOKIE_NAME)
     if encoded_token is not None:
         try:
-            decoded_token = jwt.decode(encoded_token, COOKIE_KEY, algorithms=['HS256'])
+            decoded_token = jwt.decode(encoded_token, COOKIE_HASH_KEY, algorithms=['HS256'])
             return decoded_token['access'], decoded_token['id']
         except (InvalidSignatureError, DecodeError, KeyError) as e:
             print(e)

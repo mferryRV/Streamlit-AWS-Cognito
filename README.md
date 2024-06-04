@@ -29,12 +29,14 @@ pip install -r requirements.txt
 2.  **Configure AWS Cognito**
 
 Set up a User Pool in your AWS Console.
-Create .env file in **components** folder and add your AWS Cognito credentials.
+Create .env file in **components** folder and add your AWS Cognito credentials. Define the cookie name for storing the tokens, as well as a key to hash the data.
 ```bash
 COGNITO_DOMAIN = "https://xxx.auth.eu-north-1.amazoncognito.com"
 CLIENT_ID = "xxx"
 CLIENT_SECRET = "xxx"
 APP_URI = "http://localhost:8501/"
+COOKIE_NAME = "xxx"
+COOKIE_HASH_KEY = "xxx"
 ```
 
 3.  **Run the Streamlit app**
