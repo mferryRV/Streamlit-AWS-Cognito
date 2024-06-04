@@ -263,7 +263,7 @@ def set_st_state_vars():
 # Login/ Logout HTML components
 # -----------------------------
 login_link = f"{COGNITO_DOMAIN}/login?client_id={CLIENT_ID}&response_type=code&scope=email+openid&redirect_uri={APP_URI}"
-logout_link = f"{COGNITO_DOMAIN}/logout?client_id={CLIENT_ID}&logout_uri={APP_URI}&logout"
+logout_link = f"{COGNITO_DOMAIN}/logout?client_id={CLIENT_ID}&logout_uri={APP_URI}?logout"
 
 html_css_login = """
 <style>
